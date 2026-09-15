@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  BUYER
+  SELLER
+}
+
+enum AuctionStatus {
+  SCHEDULED
+  LIVE
+  CLOSED
+}
+
+enum SettlementStatus {
+  PENDING
+  PAID
+  PAYMENT_EXPIRED
+  UNSOLD_RESERVE_NOT_MET
+  CANCELLED
+}
+
+model User {
+  id               String       @id @default(uuid())
+  email            String       @unique
+  passwordHash     String
+  name             String
+  role             Role         @default(BUYER)
+  twoFactorSecret  String?
+  isTwoFactorReady Boolean      @default(false)
+  createdAt        DateTime     @default(now())
+
+  auctions         Auction[]    @relation("SellerAuctions")
+  bids             Bid[]
+  settlements      Settlement[] @relation("WinningBidder")
+  notifications    Notification[]
+  recoveryCodes    TwoFactorRecoveryCode[]
+}
+
+model Auction {
+  id             String           @id @default(uuid())
+  sellerId       String
+  title          String
+  description    String
+  imageUrl       String
+  category       String
+  startingPrice  Decimal
+  reservePrice   Decimal
+  minIncrement   Decimal          @default(1.0)
+  currentHighest Decimal          @default(0.0)
+  status         AuctionStatus    @default(SCHEDULED)
+  startTime      DateTime
+  endTime        DateTime
+  extensionCount Int              @default(0)
+  maxExtensions  Int              @default(10)
+  viewCount      Int              @default(0)
+  createdAt      DateTime         @default(now())
+
+  seller         User             @relation("SellerAuctions", fields: [sellerId], references: [id])
+  bids           Bid[]
+  settlements    Settlement[]
+
+  @@index([status, startTime])
+  @@index([status, endTime])
+}
+
+model Bid {
+  id         String   @id @default(uuid())
+  auctionId  String
+  bidderId   String
+  amount     Decimal
+  placedAt   DateTime @default(now())
+
+  auction    Auction  @relation(fields: [auctionId], references: [id])
+  bidder     User     @relation(fields: [bidderId], references: [id])
+  settlements Settlement[] 
+
+  @@index([auctionId, amount])
+  @@index([bidderId, placedAt])
+}
+
+model Settlement {
+  id              String           @id @default(uuid())
+  auctionId       String
+  bidderId        String
+  bidId           String
+  amount          Decimal
+  paymentDeadline DateTime?
+  status          SettlementStatus @default(PENDING)
+  attemptNumber   Int
+  createdAt       DateTime         @default(now())
+
+  auction         Auction          @relation(fields: [auctionId], references: [id])
+  bidder          User             @relation("WinningBidder", fields: [bidderId], references: [id])
+  bid             Bid              @relation(fields: [bidId], references: [id])
+
+  @@index([auctionId, attemptNumber])
+  @@index([status, paymentDeadline])
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  type      String
+  title     String
+  message   String
+  auctionId String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+model TwoFactorRecoveryCode {
+  id        String    @id @default(uuid())
+  userId    String
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
