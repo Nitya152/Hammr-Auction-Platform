@@ -9,6 +9,7 @@ datasource db {
 enum Role {
   BUYER
   SELLER
+  ADMIN
 }
 
 enum AuctionStatus {

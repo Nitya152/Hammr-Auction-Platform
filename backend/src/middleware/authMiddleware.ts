@@ -32,3 +32,15 @@ export const requireAuth = (
     res.status(401).json({ error: "Unauthorized: Invalid token" });
   }
 };
+export const requireAdmin = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): void => {
+  // Check if user exists on the request (from requireAuth) and has the ADMIN role
+  if (!req.user || req.user.role !== "ADMIN") {
+    res.status(403).json({ error: "Forbidden: Admin access required" });
+    return;
+  }
+  next();
+};
