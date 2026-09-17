@@ -13,13 +13,20 @@ import { Server } from "socket.io";
 
 const app = express();
 const server = http.createServer(app);
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://hammr-auction-platform-dm6k.vercel.app",
+];
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: [
+      "http://localhost:3000",
+      "https://hammr-auction-platform-dm6k.vercel.app",
+    ],
+    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
   },
 });
-
 // Make io accessible in your controllers
 app.set("io", io);
 
@@ -30,7 +37,13 @@ io.on("connection", (socket) => {
 const PORT = process.env.PORT || 4000;
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+  }),
+);
 app.use(helmet());
 app.use(express.json());
 app.use(morgan("dev"));
