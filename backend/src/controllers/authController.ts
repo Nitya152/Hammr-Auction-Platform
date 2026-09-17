@@ -81,11 +81,13 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
       }
 
       // If they provided a code, verify it
-      const isCodeValid = await verify({
+      const verificationResult = await verify({
         token: mfaCode,
         secret: user.twoFactorSecret,
       });
-      if (!isCodeValid) {
+
+      // FIX: Check verificationResult.valid instead of the object itself
+      if (!verificationResult.valid) {
         res.status(401).json({ error: "Invalid Authenticator code" });
         return;
       }
