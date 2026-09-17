@@ -8,8 +8,25 @@ import authRoutes from "./routes/authRoutes";
 import auctionRoutes from "./routes/auctionRoutes";
 import bidRoutes from "./routes/bidRoutes";
 import mfaRoutes from "./routes/mfaRoutes";
+import http from "http";
+import { Server } from "socket.io";
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+  },
+});
+
+// Make io accessible in your controllers
+app.set("io", io);
+
+io.on("connection", (socket) => {
+  // Allow users to join a room specific to the auction they are viewing
+  socket.on("joinAuction", (auctionId) => socket.join(auctionId));
+});
 const PORT = process.env.PORT || 4000;
 
 // Middleware
@@ -36,6 +53,6 @@ app.get("/health", async (req: Request, res: Response) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server is running on   http://localhost:${PORT}`);
 });

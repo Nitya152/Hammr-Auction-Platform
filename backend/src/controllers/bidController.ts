@@ -50,6 +50,14 @@ export const placeBid = async (
         data: { currentHighest: amount },
       }),
     ]);
+    // 5. Broadcast the new bid price via WebSockets
+    const io = req.app.get("io");
+    if (io) {
+      io.to(auctionId).emit("bidUpdate", {
+        auctionId: auctionId,
+        newHighestBid: amount,
+      });
+    }
 
     res.status(201).json({ message: "Bid placed successfully", bid: newBid });
   } catch (error) {
