@@ -106,6 +106,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
         name: user.name,
         email: user.email,
         role: user.role,
+        isTwoFactorReady: user.isTwoFactorReady,
       },
     });
   } catch (error) {

@@ -73,7 +73,18 @@ export default function ProfilePage() {
             <h3 className="text-lg font-semibold mb-4 text-white">
               Security & Two-Factor Authentication
             </h3>
-            <MfaSetup />
+            {user.isTwoFactorReady ? (
+              <div className="bg-green-950/30 border border-green-800/50 p-4 rounded-lg flex items-center justify-between">
+                <span className="text-green-300 text-sm font-medium">
+                  Microsoft Authenticator is linked and active.
+                </span>
+                <span className="bg-green-600 text-white text-xs px-2.5 py-1 rounded-full font-bold">
+                  Linked ✅
+                </span>
+              </div>
+            ) : (
+              <MfaSetup />
+            )}
           </div>
 
           {/* Sign Out Button */}
