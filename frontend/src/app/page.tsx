@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { io } from "socket.io-client";
 
 type Auction = {
   id: string;
@@ -41,7 +42,8 @@ function Countdown({ endAt }: { endAt: string }) {
     </span>
   );
 }
-
+const [user, setUser] = useState(null);
+const [flashingId, setFlashingId] = useState<string | null>(null);
 export default function Home() {
   const router = useRouter();
   const [mode, setMode] = useState<"buyer" | "seller">("buyer");
@@ -64,7 +66,46 @@ export default function Home() {
       })
       .catch((err) => console.error("Failed to fetch auctions:", err));
   }, []);
+  // --- REAL-TIME WEBSOCKET LISTENER ---
+  useEffect(() => {
+    // Don't connect until the initial fetch has populated the auctions
+    if (auctions.length === 0) return;
 
+    const socket = io(
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000",
+    );
+
+    socket.on("connect", () => {
+      console.log("🟢 Connected to live auction WebSocket!");
+
+      // Join the "room" for every auction currently loaded
+      auctions.forEach((auction) => {
+        socket.emit("joinAuction", auction.id);
+      });
+    });
+
+    // Listen for the 'bidUpdate' event we broadcasted from the backend
+    socket.on("bidUpdate", (data) => {
+      console.log("⚡ Live bid received:", data);
+
+      // Update the React state instantly
+      setAuctions((currentAuctions) =>
+        currentAuctions.map((auction) =>
+          auction.id === data.auctionId
+            ? { ...auction, currentHighest: data.newHighestBid }
+            : auction,
+        ),
+      );
+      setFlashingId(data.auctionId);
+      setTimeout(() => setFlashingId(null), 1000);
+    });
+
+    // Clean up the connection when the user navigates away
+    return () => {
+      socket.disconnect();
+    };
+  }, [auctions.length]); // Re-run if the total number of auctions loaded changes
+  // ------------------------------------
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
@@ -406,7 +447,13 @@ export default function Home() {
                         <span className="text-[11px] text-neutral-500 block mb-1 uppercase tracking-wider">
                           Current bid
                         </span>
-                        <strong className="text-lg font-black text-white">
+                        <strong
+                          className={`text-lg font-black px-2 py-0.5 rounded transition-colors duration-700 ${
+                            flashingId === auction.id
+                              ? "bg-emerald-500/40 text-emerald-100"
+                              : "bg-transparent text-white"
+                          }`}
+                        >
                           {money(
                             auction.currentHighest || auction.startingPrice,
                           )}
