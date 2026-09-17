@@ -10,47 +10,60 @@ export const placeBid = async (
     const { auctionId, amount } = req.body;
     const bidderId = req.user!.userId;
 
-    // 1. Fetch the auction to check the rules
-    const auction = await prisma.auction.findUnique({
-      where: { id: auctionId },
-    });
+    // 1. Use an Interactive Transaction to lock the row and prevent race conditions
+    const result = await prisma.$transaction(async (tx) => {
+      // 2. Lock the auction row (FOR UPDATE).
+      // If multiple users bid simultaneously, Postgres forces them to evaluate sequentially.
+      const lockedAuctions = await tx.$queryRaw<any[]>`
+        SELECT * FROM "Auction" WHERE id = ${auctionId} FOR UPDATE
+      `;
 
-    if (!auction) {
-      res.status(404).json({ error: "Auction not found" });
-      return;
-    }
+      if (!lockedAuctions || lockedAuctions.length === 0) {
+        return { status: 404, error: "Auction not found" };
+      }
 
-    // 2. Validate auction time (Optional but recommended)
-    const now = new Date();
-    if (now < auction.startTime || now > auction.endTime) {
-      res.status(400).json({ error: "This auction is not currently active" });
-      return;
-    }
+      const auction = lockedAuctions[0];
 
-    // 3. Ensure the bid is high enough
-    // Prisma returns Decimal as an object, so we convert them to JavaScript Numbers for math
-    const currentHigh = Number(auction.currentHighest);
-    const minInc = Number(auction.minIncrement);
-    const startPrice = Number(auction.startingPrice);
+      // 3. Validate auction time
+      const now = new Date();
+      if (
+        now < new Date(auction.startTime) ||
+        now > new Date(auction.endTime)
+      ) {
+        return { status: 400, error: "This auction is not currently active" };
+      }
 
-    const minRequired = currentHigh > 0 ? currentHigh + minInc : startPrice;
+      // 4. Ensure the bid is high enough based on the TRULY latest locked price
+      const currentHigh = Number(auction.currentHighest);
+      const minInc = auction.minIncrement ? Number(auction.minIncrement) : 10;
+      const startPrice = Number(auction.startingPrice);
 
-    if (amount < minRequired) {
-      res.status(400).json({ error: `Bid must be at least ${minRequired}` });
-      return;
-    }
+      const minRequired = currentHigh > 0 ? currentHigh + minInc : startPrice;
 
-    // 4. Use a Prisma Transaction to safely create the bid AND update the auction price together
-    const [newBid, updatedAuction] = await prisma.$transaction([
-      prisma.bid.create({
-        data: { auctionId, bidderId, amount },
-      }),
-      prisma.auction.update({
+      if (amount < minRequired) {
+        return { status: 400, error: `Bid must be at least ${minRequired}` };
+      }
+
+      // 5. Update the auction price and save the bid while still locked
+      await tx.auction.update({
         where: { id: auctionId },
         data: { currentHighest: amount },
-      }),
-    ]);
-    // 5. Broadcast the new bid price via WebSockets
+      });
+
+      const newBid = await tx.bid.create({
+        data: { auctionId, bidderId, amount },
+      });
+
+      return { status: 201, bid: newBid };
+    });
+
+    // Handle validation failures that occurred inside the transaction
+    if (result.error) {
+      res.status(result.status).json({ error: result.error });
+      return;
+    }
+
+    // 6. Broadcast the new bid price via WebSockets
     const io = req.app.get("io");
     if (io) {
       io.to(auctionId).emit("bidUpdate", {
@@ -59,7 +72,9 @@ export const placeBid = async (
       });
     }
 
-    res.status(201).json({ message: "Bid placed successfully", bid: newBid });
+    res
+      .status(201)
+      .json({ message: "Bid placed successfully", bid: result.bid });
   } catch (error) {
     console.error("Bid Error:", error);
     res.status(500).json({ error: "Failed to place bid" });
