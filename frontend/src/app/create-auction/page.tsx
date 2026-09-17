@@ -17,7 +17,7 @@ export default function CreateAuctionPage() {
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    if (!user || user.role !== "SELLER") {
+    if (!user || (user.role !== "SELLER" && user.role !== "ADMIN")) {
       alert("Access denied. Only sellers can host auctions.");
       router.push("/");
     }
@@ -29,23 +29,26 @@ export default function CreateAuctionPage() {
     const token = localStorage.getItem("token");
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auctions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/auctions`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`, // Don't forget the token!
+          },
+          body: JSON.stringify({
+            title,
+            description,
+            imageUrl,
+            category,
+            startingPrice: Number(startingPrice),
+            reservePrice: Number(reservePrice),
+            startTime: new Date(startTime).toISOString(),
+            endTime: new Date(endTime).toISOString(),
+          }),
         },
-        body: JSON.stringify({
-          title,
-          description,
-          imageUrl,
-          category,
-          startingPrice: Number(startingPrice),
-          reservePrice: Number(reservePrice),
-          startTime: new Date(startTime).toISOString(),
-          endTime: new Date(endTime).toISOString(),
-        }),
-      });
+      );
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create auction");

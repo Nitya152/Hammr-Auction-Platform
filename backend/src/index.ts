@@ -7,6 +7,7 @@ import { prisma } from "./prisma";
 import authRoutes from "./routes/authRoutes";
 import auctionRoutes from "./routes/auctionRoutes";
 import bidRoutes from "./routes/bidRoutes";
+import mfaRoutes from "./routes/mfaRoutes";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -18,9 +19,10 @@ app.use(express.json());
 app.use(morgan("dev"));
 
 // Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/auctions", auctionRoutes);
-app.use("/api/bids", bidRoutes);
+app.use("/auth", authRoutes);
+app.use("/auctions", auctionRoutes);
+app.use("/bids", bidRoutes);
+app.use("/api/mfa", mfaRoutes);
 
 // Database connection health check
 app.get("/health", async (req: Request, res: Response) => {
@@ -35,5 +37,5 @@ app.get("/health", async (req: Request, res: Response) => {
 
 // Start Server
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server is running on   http://localhost:${PORT}`);
 });

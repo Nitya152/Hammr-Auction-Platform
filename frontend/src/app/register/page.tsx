@@ -10,7 +10,7 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-
+  const [role, setRole] = useState("SELLER");
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -86,6 +86,31 @@ export default function Register() {
             className="w-full p-2 bg-gray-800 border border-gray-700 rounded text-white focus:outline-none focus:border-blue-500"
             required
           />
+        </div>
+        <div className="mb-6 bg-indigo-950/30 border border-indigo-500/40 p-4 rounded-xl">
+          <label className="block text-xs font-bold uppercase tracking-wider text-indigo-300 mb-1.5 flex items-center justify-between">
+            <span>Account Role</span>
+            <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-semibold">
+              Required
+            </span>
+          </label>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="w-full p-3 bg-neutral-900 border border-indigo-500/50 rounded-lg text-white text-sm outline-none focus:border-indigo-400 transition cursor-pointer font-medium"
+          >
+            <option value="SELLER" className="bg-neutral-900 text-white">
+              Seller (Host Auctions)
+            </option>
+            <option value="BUYER" className="bg-neutral-900 text-white">
+              Buyer (Place Bids)
+            </option>
+          </select>
+          <p className="text-[11px] text-neutral-400 mt-2">
+            {role === "SELLER"
+              ? "✨ Default selected: You can host and list items."
+              : "🛒 Selected: You can search and place bids on lots."}
+          </p>
         </div>
 
         <button

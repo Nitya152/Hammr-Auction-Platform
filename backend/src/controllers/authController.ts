@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { verify } from "otplib";
 import { prisma } from "../prisma";
 
 const JWT_SECRET = process.env.JWT_SECRET || "super-secret-development-key";
@@ -80,7 +81,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
       }
 
       // If they provided a code, verify it
-      const isCodeValid = authenticator.verify({
+      const isCodeValid = await verify({
         token: mfaCode,
         secret: user.twoFactorSecret,
       });

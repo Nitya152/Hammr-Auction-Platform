@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { authenticator } from "otplib";
+import { generateSecret, generateURI, verify } from "otplib"; // v13 Imports
 import QRCode from "qrcode";
 import { prisma } from "../prisma";
 import { AuthRequest } from "../middleware/authMiddleware";
@@ -22,18 +22,19 @@ export const setup2FA = async (
       return;
     }
 
-    // Generate a new secure secret for this user
-    const secret = authenticator.generateSecret();
+    // 1. Generate secret using v13 API
+    const secret = generateSecret();
 
-    // Create the URI that Microsoft Authenticator understands
-    // Format: keyuri(accountName, issuer, secret)
-    const otpauthUrl = authenticator.keyuri(user.email, "Hammr", secret);
+    // 2. Generate URI using v13 API structure
+    const otpauthUrl = generateURI({
+      issuer: "Hammr",
+      label: user.email,
+      secret,
+    });
 
-    // Convert the URI into a scannable QR Code image (Base64 string)
+    // 3. Convert to QR code image
     const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
 
-    // IMPORTANT: We send the secret to the frontend temporarily so it can be sent back
-    // during verification. We don't save it to the DB until they prove they can scan it.
     res.status(200).json({
       secret,
       qrCode: qrCodeDataUrl,
@@ -51,24 +52,24 @@ export const verifyAndEnable2FA = async (
 ): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const { token, secret } = req.body; // token is the 6-digit code from Microsoft Authenticator
+    const { token, secret } = req.body;
 
     if (!userId || !token || !secret) {
       res.status(400).json({ error: "Missing required fields" });
       return;
     }
 
-    // Verify the 6-digit code against the secret
-    const isValid = authenticator.verify({ token, secret });
+    // 4. In v13, verify() is asynchronous and returns an object!
+    const result = await verify({ token, secret });
 
-    if (!isValid) {
+    if (!result.valid) {
       res
         .status(400)
         .json({ error: "Invalid 6-digit code. Please try again." });
       return;
     }
 
-    // If valid, officially save the secret to the DB and enable 2FA
+    // 5. If valid, save the secret to the DB
     await prisma.user.update({
       where: { id: userId },
       data: {

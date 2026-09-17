@@ -93,10 +93,19 @@ export default function Home() {
       return;
     }
 
-    const nextBid = auction.currentHighest + 10;
+    // 1. FIXED: Force mathematical addition using Number()
+    const currentHigh = Number(auction.currentHighest);
+
+    // Optional safeguard: If currentHigh is 0, add 10 to the starting price instead
+    const basePrice =
+      currentHigh > 0 ? currentHigh : Number(auction.startingPrice || 0);
+    const nextBid = basePrice + 10;
+
     const token = localStorage.getItem("token");
 
     try {
+      // 2. NOTE: Ensure your endpoint is correct here!
+      // If your backend routes are under /api, this should be /api/bids or /api/auctions
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/bids`,
         {
