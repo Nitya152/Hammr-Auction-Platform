@@ -29,26 +29,28 @@ export default function LoginPage() {
 
       const data = await res.json();
 
-      if (res.ok && data.mfaRequired) {
+      // 👇 ADD THIS: If response is not ok, display the backend error message (Wrong password, invalid code, etc.)
+      if (!res.ok) {
+        setError(data.error || "Login failed");
+        return;
+      }
+
+      if (data.mfaRequired) {
         // Step 1 Passed, but 2FA is required
         setNeedsMfa(true);
         return;
       }
 
-      if (res.ok && data.token) {
+      if (data.token) {
         // Step 2 Passed (or 2FA wasn't enabled) - Complete Login
-        if (res.ok && data.token) {
-          // 1. Save the token
-          localStorage.setItem("token", data.token);
+        // 1. Save the token
+        localStorage.setItem("token", data.token);
 
-          // 2. Save the user object (THIS IS WHAT YOU ARE MISSING!)
-          localStorage.setItem("user", JSON.stringify(data.user));
+        // 2. Save the user object
+        localStorage.setItem("user", JSON.stringify(data.user));
 
-          // 3. Redirect to the homepage
-          window.location.href = "/";
-        } else {
-          setError(data.error || "Login failed");
-        }
+        // 3. Redirect to the homepage
+        window.location.href = "/";
       }
     } catch (err) {
       setError("An unexpected error occurred");
